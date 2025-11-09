@@ -102,9 +102,6 @@ export function connect<T extends PropTypes>(service: SplitterService, normalize
         style: {
           display: "flex",
           flexDirection: horizontal ? "row" : "column",
-          height: "100%",
-          width: "100%",
-          overflow: "hidden",
         },
       })
     },
