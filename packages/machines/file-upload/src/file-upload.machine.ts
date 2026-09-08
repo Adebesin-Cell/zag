@@ -14,6 +14,7 @@ export const machine = createMachine<FileUploadSchema>({
       maxFiles: 1,
       allowDrop: true,
       preventDocumentDrop: true,
+      syncInputElement: true,
       defaultAcceptedFiles: [],
       ...props,
       translations: {
@@ -155,7 +156,8 @@ export const machine = createMachine<FileUploadSchema>({
     },
 
     actions: {
-      syncInputElement({ scope, context }) {
+      syncInputElement({ scope, context, prop }) {
+        if (!prop("syncInputElement")) return
         queueMicrotask(() => {
           const inputEl = dom.getHiddenInputEl(scope)
           if (!inputEl) return

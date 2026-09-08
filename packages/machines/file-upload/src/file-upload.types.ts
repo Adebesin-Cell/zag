@@ -1,5 +1,5 @@
 import type { EventObject, Machine, Service } from "@zag-js/core"
-import type { FileError, FileMimeType } from "@zag-js/file-utils"
+import type { FileEntryInfo, FileError, FileMimeType } from "@zag-js/file-utils"
 import type { CommonProperties, LocaleProperties, PropTypes, RequiredBy } from "@zag-js/types"
 
 /* -----------------------------------------------------------------------------
@@ -140,6 +140,26 @@ export interface FileUploadProps extends LocaleProperties, CommonProperties {
    */
   directory?: boolean | undefined
   /**
+   * When traversing a dropped directory, called for each entry. Return `true` to skip
+   * the file, or an entire subtree when the entry is a directory (e.g. `node_modules`).
+   * Skipped subtrees are never enumerated, which keeps large folder drops responsive.
+   */
+  ignoreEntry?: ((entry: FileEntryInfo) => boolean) | undefined
+  /**
+   * Override how files are extracted from the drop/select event. Return the files to
+   * ingest (optionally async). Use as an escape hatch for custom traversal, pruning,
+   * or capping. When set, `directory` and `ignoreEntry` are bypassed. The event is the
+   * framework's drop/change event; narrow it before reading `dataTransfer`/`target`.
+   */
+  getFilesFromEvent?: ((event: unknown) => File[] | Promise<File[]>) | undefined
+  /**
+   * Whether to keep the hidden `<input>` element's `files` in sync with the accepted files.
+   * Syncing rebuilds a `DataTransfer` on every change, which is costly for very large sets,
+   * so disable it when accepting many files (e.g. directory uploads).
+   * @default true
+   */
+  syncInputElement?: boolean | undefined
+  /**
    * Whether the file input is invalid
    */
   invalid?: boolean | undefined
@@ -160,6 +180,7 @@ type PropsWithDefault =
   | "preventDocumentDrop"
   | "allowDrop"
   | "translations"
+  | "syncInputElement"
 
 interface Context {
   /**

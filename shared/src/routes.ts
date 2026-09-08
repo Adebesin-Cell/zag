@@ -180,6 +180,7 @@ export const componentRoutes: ComponentRoute[] = [
     label: "File Upload",
     examples: [
       { slug: "basic", title: "Basic" },
+      { slug: "directory", title: "Directory" },
       { slug: "with-rejections", title: "Multiple + Rejections" },
       { slug: "cover", title: "Cover" },
       { slug: "react-hook-form", title: "Hook Form" },

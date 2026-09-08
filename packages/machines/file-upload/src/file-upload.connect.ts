@@ -171,7 +171,18 @@ export function connect<T extends PropTypes>(
           const hasFiles = isEventWithFiles(event)
           if (!hasFiles) return
 
-          getFileEntries(event.dataTransfer.items, prop("directory")).then((files) => {
+          const getFilesFromEvent = prop("getFilesFromEvent")
+          if (getFilesFromEvent) {
+            Promise.resolve(getFilesFromEvent(event)).then((files) => {
+              send({ type: "DROPZONE.DROP", files: flatArray(files) })
+            })
+            return
+          }
+
+          getFileEntries(event.dataTransfer.items, prop("directory"), {
+            maxFiles: prop("directory") ? prop("maxFiles") : undefined,
+            ignore: prop("ignoreEntry"),
+          }).then((files) => {
             send({ type: "DROPZONE.DROP", files: flatArray(files) })
           })
         },
@@ -228,8 +239,30 @@ export function connect<T extends PropTypes>(
         },
         onInput(event) {
           if (disabled || readOnly) return
+
+          const getFilesFromEvent = prop("getFilesFromEvent")
+          if (getFilesFromEvent) {
+            Promise.resolve(getFilesFromEvent(event)).then((files) => {
+              send({ type: "FILE.SELECT", files: flatArray(files) })
+            })
+            return
+          }
+
           const { files } = event.currentTarget
-          send({ type: "FILE.SELECT", files: files ? Array.from(files) : [] })
+          let list = files ? Array.from(files) : []
+
+          const ignore = prop("ignoreEntry")
+          if (ignore) {
+            list = list.filter((file) => {
+              const path = file.webkitRelativePath || file.name
+              return !ignore({ name: file.name, path, isDirectory: false })
+            })
+          }
+
+          const maxFiles = prop("maxFiles")
+          if (prop("directory") && list.length > maxFiles) list = list.slice(0, maxFiles)
+
+          send({ type: "FILE.SELECT", files: list })
         },
         style: visuallyHiddenStyle,
       })

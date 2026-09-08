@@ -9,71 +9,70 @@ const isDirectoryEntry = (entry: FileSystemEntry): entry is FileSystemDirectoryE
 
 const isFileEntry = (entry: FileSystemEntry): entry is FileSystemFileEntry => entry.isFile
 
-const addRelativePath = (file: File, path: string) => {
-  Object.defineProperty(file, "relativePath", { value: path ? `${path}/${file.name}` : file.name })
+const setRelativePath = (file: File, path: string) => {
+  Object.defineProperty(file, "relativePath", { value: path, configurable: true })
   return file
 }
 
-export const getFileEntries = (items: DataTransferItemList, traverseDirectories: boolean | undefined) =>
-  Promise.all(
-    Array.from(items)
-      .filter((item) => item.kind === "file")
-      .map((item) => {
-        const entry = getItemEntry(item)
-        if (!entry) return null
+const entryPath = (entry: FileSystemEntry) => entry.fullPath.replace(/^\//, "")
 
-        if (isDirectoryEntry(entry) && traverseDirectories) {
-          return getDirectoryFiles(entry.createReader(), `${entry.name}`)
-        }
+export interface FileEntryInfo {
+  name: string
+  path: string
+  isDirectory: boolean
+}
 
-        if (isFileEntry(entry) && typeof item.getAsFile === "function") {
-          const file = item.getAsFile()
-          return Promise.resolve(file ? addRelativePath(file, "") : null)
-        }
+export interface GetFileEntriesOptions {
+  maxFiles?: number | undefined
+  ignore?: ((entry: FileEntryInfo) => boolean) | undefined
+}
 
-        if (isFileEntry(entry)) {
-          return new Promise<File | null>((resolve) => {
-            entry.file((file) => {
-              resolve(addRelativePath(file, ""))
-            })
-          })
-        }
-      })
-      .filter((b) => b),
-  )
-
-const getDirectoryFiles = (reader: FileSystemDirectoryReader, path = ""): Promise<Array<File | null>> =>
-  new Promise((resolve) => {
-    const entryPromises: Promise<File | null>[] = []
-    const readDirectoryEntries = () => {
-      reader.readEntries((entries) => {
-        if (entries.length === 0) {
-          resolve(Promise.all(entryPromises).then((entries) => entries.flat()))
-          return
-        }
-
-        const promises = entries
-          .map((entry) => {
-            if (!entry) return null
-
-            if (isDirectoryEntry(entry)) {
-              return getDirectoryFiles(entry.createReader(), `${path}${entry.name}`)
-            }
-
-            if (isFileEntry(entry)) {
-              return new Promise<File | null>((resolve) => {
-                entry.file((file) => {
-                  resolve(addRelativePath(file, path))
-                })
-              })
-            }
-          })
-          .filter((b) => b)
-
-        // @ts-expect-error
-        entryPromises.push(Promise.all(promises))
-        readDirectoryEntries()
-      })
-    }
-    readDirectoryEntries()
+const readAllEntries = (reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> => {
+  const entries: FileSystemEntry[] = []
+  return new Promise((resolve, reject) => {
+    const read = () =>
+      reader.readEntries((batch) => {
+        if (batch.length === 0) return resolve(entries)
+        entries.push(...batch)
+        read()
+      }, reject)
+    read()
   })
+}
+
+export const getFileEntries = async (
+  items: DataTransferItemList,
+  traverseDirectories: boolean | undefined,
+  options: GetFileEntriesOptions = {},
+): Promise<File[]> => {
+  const { maxFiles = Number.POSITIVE_INFINITY, ignore } = options
+  const files: File[] = []
+
+  const shouldIgnore = (entry: FileSystemEntry) =>
+    ignore?.({ name: entry.name, path: entryPath(entry), isDirectory: entry.isDirectory }) ?? false
+
+  const walk = async (entry: FileSystemEntry | null): Promise<void> => {
+    if (!entry || files.length >= maxFiles || shouldIgnore(entry)) return
+
+    if (isDirectoryEntry(entry) && traverseDirectories) {
+      const children = await readAllEntries(entry.createReader())
+      for (const child of children) {
+        if (files.length >= maxFiles) break
+        await walk(child)
+      }
+      return
+    }
+
+    if (isFileEntry(entry)) {
+      const file = await new Promise<File | null>((resolve) => entry.file(resolve, () => resolve(null)))
+      if (file) files.push(setRelativePath(file, entryPath(entry)))
+    }
+  }
+
+  for (const item of Array.from(items)) {
+    if (item.kind !== "file" || files.length >= maxFiles) continue
+    await walk(getItemEntry(item))
+  }
+
+  return files
+}
