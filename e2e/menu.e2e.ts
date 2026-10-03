@@ -1,4 +1,4 @@
-import { test } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 import { MenuModel } from "./models/menu.model"
 
 let I: MenuModel
@@ -73,6 +73,51 @@ test.describe("menu", () => {
     // click again to open
     await I.clickTrigger()
     await I.seeDropdown()
+  })
+
+  test("[modal] should lock scroll and hide outside content from screen readers", async ({ page }) => {
+    await I.controls.bool("modal", true)
+    await I.clickTrigger()
+    await I.seeDropdown()
+
+    await expect(page.locator("body")).toHaveAttribute("data-scroll-lock", "")
+    await expect(page.locator(".toolbar")).toHaveAttribute("aria-hidden", "true")
+
+    await I.pressKey("Escape")
+    await expect(page.locator("body")).not.toHaveAttribute("data-scroll-lock")
+    await expect(page.locator(".toolbar")).not.toHaveAttribute("aria-hidden")
+  })
+
+  test("[modal] should block pointer interaction outside and close", async ({ page }) => {
+    await I.controls.bool("modal", true)
+    const checkbox = page.getByTestId("modal")
+    const box = (await checkbox.boundingBox())!
+
+    await I.clickTrigger()
+    await I.seeDropdown()
+
+    // the click lands on the blocked page, not the checkbox underneath
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+    await I.dontSeeDropdown()
+    await expect(checkbox).toBeChecked()
+  })
+
+  test("[modal] on tab, keep focus in the menu", async () => {
+    await I.controls.bool("modal", true)
+    await I.clickTrigger()
+    await I.seeDropdownIsFocused()
+    await I.pressKey("Tab")
+    await I.seeDropdownIsFocused()
+    await I.pressKey("Shift+Tab")
+    await I.seeDropdownIsFocused()
+  })
+
+  test("[non-modal] should not lock scroll or hide outside content", async ({ page }) => {
+    await I.clickTrigger()
+    await I.seeDropdown()
+
+    await expect(page.locator("body")).not.toHaveAttribute("data-scroll-lock")
+    await expect(page.locator(".toolbar")).not.toHaveAttribute("aria-hidden")
   })
 })
 

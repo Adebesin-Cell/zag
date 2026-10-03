@@ -1,3 +1,4 @@
+import { ariaHidden } from "@zag-js/aria-hidden"
 import { createGuards, createMachine, type Transition } from "@zag-js/core"
 import { trackDismissableElement, type LayerSnapshot } from "@zag-js/dismissable"
 import {
@@ -16,6 +17,7 @@ import {
 import { getInteractionModality, setInteractionModality, trackFocusVisible } from "@zag-js/focus-visible"
 import { getPlacement, getPlacementSide, type Placement } from "@zag-js/popper"
 import { getElementPolygon, isPointInPolygon, type Point } from "@zag-js/rect-utils"
+import { preventBodyScroll } from "@zag-js/remove-scroll"
 import { isEqual } from "@zag-js/utils"
 import { parts } from "./menu.anatomy"
 import * as dom from "./menu.dom"
@@ -62,6 +64,7 @@ export const machine = createMachine<MenuSchema>({
       typeahead: true,
       composite: true,
       loopFocus: false,
+      modal: false,
       navigate(details) {
         clickIfLink(details.node)
       },
@@ -145,6 +148,8 @@ export const machine = createMachine<MenuSchema>({
       resolveItemId(refs.get("children"), context.get("highlightedValue"), scope),
     isInMenubar: ({ prop }) => prop("menubar") != null,
     menubarDisabled: ({ prop }) => prop("menubar")?.disabled ?? false,
+    // submenus inherit the root's modality; menubar menus switch on hover, which blocking would break
+    isModal: ({ prop, context }) => !!prop("modal") && !context.get("isSubmenu") && prop("menubar") == null,
   },
 
   effects: ["trackMenubarOpenRequest"],
@@ -438,6 +443,8 @@ export const machine = createMachine<MenuSchema>({
         "trackPositioning",
         "scrollToHighlightedItem",
         "trackMenubarSiblings",
+        "preventScroll",
+        "hideContentBelow",
       ],
       entry: ["setInstant", "focusMenu", "unlockParentOnOpen", "dispatchMenubarOpen"],
       on: {
@@ -660,59 +667,82 @@ export const machine = createMachine<MenuSchema>({
           },
         })
       },
-      trackInteractOutside({ refs, scope, prop, context, send }) {
-        const getContentEl = () => dom.getContentEl(scope)
-        let restoreFocus = true
+      trackInteractOutside({ refs, scope, prop, context, computed, send, watchEffect }) {
+        // pointerBlocking is read at setup, so `modal` has to re-run this
+        return watchEffect([() => computed("isModal")], () => {
+          const getContentEl = () => dom.getContentEl(scope)
+          let restoreFocus = true
 
-        // Helper to check if target is within any context trigger
-        const isWithinAnyContextTrigger = (target: EventTarget | null) => {
-          return dom.getContextTriggerEls(scope).some((el) => contains(el, target as Element | null))
-        }
+          // Helper to check if target is within any context trigger
+          const isWithinAnyContextTrigger = (target: EventTarget | null) => {
+            return dom.getContextTriggerEls(scope).some((el) => contains(el, target as Element | null))
+          }
 
-        return trackDismissableElement(getContentEl, {
-          type: "menu",
-          // menubar menus open while a sibling is still registered, so group them to avoid nesting
-          group: prop("menubar")?.rootId,
-          onLayerChange(layer) {
-            context.set("layer", layer)
-          },
-          defer: true,
-          exclude: [dom.getTriggerEl(scope), ...dom.getTriggerEls(scope)].filter(Boolean) as HTMLElement[],
-          onInteractOutside: prop("onInteractOutside"),
-          onRequestDismiss: prop("onRequestDismiss"),
-          onFocusOutside(event) {
-            prop("onFocusOutside")?.(event)
+          return trackDismissableElement(getContentEl, {
+            type: "menu",
+            pointerBlocking: computed("isModal"),
+            // menubar menus open while a sibling is still registered, so group them to avoid nesting
+            group: prop("menubar")?.rootId,
+            onLayerChange(layer) {
+              context.set("layer", layer)
+            },
+            defer: true,
+            exclude: [dom.getTriggerEl(scope), ...dom.getTriggerEls(scope)].filter(Boolean) as HTMLElement[],
+            onInteractOutside: prop("onInteractOutside"),
+            onRequestDismiss: prop("onRequestDismiss"),
+            onFocusOutside(event) {
+              prop("onFocusOutside")?.(event)
 
-            const target = getEventTarget(event.detail.originalEvent)
-            if (isWithinAnyContextTrigger(target)) {
-              event.preventDefault()
-              return
-            }
-            if (dom.isTargetWithinMenuTree(target, refs.get("children"))) {
-              event.preventDefault()
-              return
-            }
-          },
-          onEscapeKeyDown(event) {
-            prop("onEscapeKeyDown")?.(event)
-            if (context.get("isSubmenu")) event.preventDefault()
-            closeRootMenu({ parent: refs.get("parent") })
-          },
-          onPointerDownOutside(event) {
-            prop("onPointerDownOutside")?.(event)
+              const target = getEventTarget(event.detail.originalEvent)
+              if (isWithinAnyContextTrigger(target)) {
+                event.preventDefault()
+                return
+              }
+              if (dom.isTargetWithinMenuTree(target, refs.get("children"))) {
+                event.preventDefault()
+                return
+              }
+            },
+            onEscapeKeyDown(event) {
+              prop("onEscapeKeyDown")?.(event)
+              if (context.get("isSubmenu")) event.preventDefault()
+              closeRootMenu({ parent: refs.get("parent") })
+            },
+            onPointerDownOutside(event) {
+              prop("onPointerDownOutside")?.(event)
 
-            const target = getEventTarget(event.detail.originalEvent)
-            // Only prevent dismissal for right-clicks on context triggers
-            // Left-clicks should dismiss the menu normally
-            if (isWithinAnyContextTrigger(target) && event.detail.contextmenu) {
-              event.preventDefault()
-              return
-            }
-            restoreFocus = !event.detail.focusable
-          },
-          onDismiss() {
-            send({ type: "CLOSE", src: "interact-outside", restoreFocus })
-          },
+              const target = getEventTarget(event.detail.originalEvent)
+              // Only prevent dismissal for right-clicks on context triggers
+              // Left-clicks should dismiss the menu normally
+              if (isWithinAnyContextTrigger(target) && event.detail.contextmenu) {
+                event.preventDefault()
+                return
+              }
+              restoreFocus = !event.detail.focusable
+            },
+            onDismiss() {
+              send({ type: "CLOSE", src: "interact-outside", restoreFocus })
+            },
+          })
+        })
+      },
+      preventScroll({ scope, computed, watchEffect }) {
+        return watchEffect([() => computed("isModal")], () => {
+          if (!computed("isModal")) return
+          return preventBodyScroll(scope.getDoc())
+        })
+      },
+      hideContentBelow({ scope, context, computed, refs, watchEffect }) {
+        return watchEffect([() => computed("isModal")], () => {
+          if (!computed("isModal")) return
+          // hiding is a snapshot, so keep every submenu already in the DOM (closed ones too);
+          // submenus mounted later land outside the snapshot and stay visible on their own
+          const getElements = () => [
+            dom.getContentEl(scope),
+            dom.getActiveTriggerEl(scope, context.get("triggerValue")),
+            ...dom.getMenuTreeContentEls(refs.get("children")),
+          ]
+          return ariaHidden(getElements, { defer: true })
         })
       },
       trackPointerMove({ context, scope, send, refs }) {

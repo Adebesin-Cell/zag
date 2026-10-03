@@ -1,20 +1,24 @@
 import * as menu from "@zag-js/menu"
-import { menuData } from "@zag-js/shared"
+import { menuControls, menuData } from "@zag-js/shared"
 import { normalizeProps, useMachine } from "@zag-js/solid"
 import { For, createMemo, createUniqueId, onMount } from "solid-js"
 import { Portal } from "solid-js/web"
 import { StateVisualizer } from "~/components/state-visualizer"
 import { Toolbar } from "~/components/toolbar"
+import { useControls } from "~/hooks/use-controls"
 import "@styles/menu.css"
 
 export default function Page() {
-  const service = useMachine(menu.machine, { id: createUniqueId() })
+  const controls = useControls(menuControls)
+
+  // every level gets the controls, so `modal` on a submenu is exercised too (it should be ignored)
+  const service = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: createUniqueId() }))
   const root = createMemo(() => menu.connect(service, normalizeProps))
 
-  const subService = useMachine(menu.machine, { id: createUniqueId() })
+  const subService = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: createUniqueId() }))
   const sub = createMemo(() => menu.connect(subService, normalizeProps))
 
-  const sub2Service = useMachine(menu.machine, { id: createUniqueId() })
+  const sub2Service = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: createUniqueId() }))
   const sub2 = createMemo(() => menu.connect(sub2Service, normalizeProps))
 
   onMount(() => {
@@ -95,7 +99,7 @@ export default function Page() {
         </div>
       </main>
 
-      <Toolbar>
+      <Toolbar controls={controls}>
         <StateVisualizer state={service} context={["currentPlacement", "highlightedValue"]} />
         <StateVisualizer state={subService} />
         <StateVisualizer state={sub2Service} />

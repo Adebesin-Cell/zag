@@ -2968,6 +2968,9 @@ importers:
       '@zag-js/anatomy':
         specifier: workspace:*
         version: link:../../anatomy
+      '@zag-js/aria-hidden':
+        specifier: workspace:*
+        version: link:../../utilities/aria-hidden
       '@zag-js/core':
         specifier: workspace:*
         version: link:../../core
@@ -2986,6 +2989,9 @@ importers:
       '@zag-js/rect-utils':
         specifier: workspace:*
         version: link:../../utilities/rect
+      '@zag-js/remove-scroll':
+        specifier: workspace:*
+        version: link:../../utilities/remove-scroll
       '@zag-js/types':
         specifier: workspace:*
         version: link:../../types

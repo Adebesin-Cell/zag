@@ -1,21 +1,23 @@
 import * as menu from "@zag-js/menu"
 import { normalizeProps, Portal, useMachine } from "@zag-js/preact"
-import { menuData } from "@zag-js/shared"
+import { menuControls, menuData } from "@zag-js/shared"
 import { useId } from "react"
 import { StateVisualizer } from "../../components/state-visualizer"
 import { Toolbar } from "../../components/toolbar"
+import { useControls } from "../../hooks/use-controls"
 import { useEffectOnce } from "../../hooks/use-effect-once"
 
 export default function Page() {
-  const service = useMachine(menu.machine, {
-    id: useId(),
-  })
+  const controls = useControls(menuControls)
+
+  // every level gets the controls, so `modal` on a submenu is exercised too (it should be ignored)
+  const service = useMachine(menu.machine, { id: useId(), ...controls.context })
   const root = menu.connect(service, normalizeProps)
 
-  const subService = useMachine(menu.machine, { id: useId() })
+  const subService = useMachine(menu.machine, { id: useId(), ...controls.context })
   const sub = menu.connect(subService, normalizeProps)
 
-  const sub2Service = useMachine(menu.machine, { id: useId() })
+  const sub2Service = useMachine(menu.machine, { id: useId(), ...controls.context })
   const sub2 = menu.connect(sub2Service, normalizeProps)
 
   useEffectOnce(() => {
@@ -85,7 +87,7 @@ export default function Page() {
         </div>
       </main>
 
-      <Toolbar controls={null}>
+      <Toolbar controls={controls.ui}>
         <StateVisualizer state={service} label="Root Machine" />
         <StateVisualizer state={subService} label="Sub Machine" />
         <StateVisualizer state={sub2Service} label="Sub2 Machine" />

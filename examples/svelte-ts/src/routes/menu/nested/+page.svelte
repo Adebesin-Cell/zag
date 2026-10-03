@@ -1,19 +1,23 @@
 <script lang="ts">
   import * as menu from "@zag-js/menu"
   import { normalizeProps, portal, useMachine } from "@zag-js/svelte"
-  import { menuData } from "@zag-js/shared"
+  import { menuControls, menuData } from "@zag-js/shared"
   import StateVisualizer from "$lib/components/state-visualizer.svelte"
   import Toolbar from "$lib/components/toolbar.svelte"
+  import { useControls } from "$lib/use-controls.svelte"
   import { onMount } from "svelte"
   import "@styles/menu.css"
 
-  const service = useMachine(menu.machine, { id: "1" })
+  const controls = useControls(menuControls)
+
+  // every level gets the controls, so `modal` on a submenu is exercised too (it should be ignored)
+  const service = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: "1" }))
   const root = $derived(menu.connect(service, normalizeProps))
 
-  const service2 = useMachine(menu.machine, { id: "2" })
+  const service2 = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: "2" }))
   const sub = $derived(menu.connect(service2, normalizeProps))
 
-  const service3 = useMachine(menu.machine, { id: "3" })
+  const service3 = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: "3" }))
   const sub2 = $derived(menu.connect(service3, normalizeProps))
 
   onMount(() => {
@@ -70,7 +74,7 @@
   </div>
 </main>
 
-<Toolbar>
+<Toolbar {controls}>
   <StateVisualizer state={service} label="Root Machine" />
   <StateVisualizer state={service2} label="Sub Machine" />
   <StateVisualizer state={service3} label="Sub2 Machine" />

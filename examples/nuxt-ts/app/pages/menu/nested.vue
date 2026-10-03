@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import * as menu from "@zag-js/menu"
+import { menuControls } from "@zag-js/shared"
 import { normalizeProps, useMachine } from "@zag-js/vue"
 import { computed, onMounted, useId } from "vue"
 import "@styles/menu.css"
@@ -28,13 +29,16 @@ const menuData = [
   ],
 ]
 
-const rootService = useMachine(menu.machine, { id: useId() })
+const controls = useControls(menuControls)
+
+// every level gets the controls, so `modal` on a submenu is exercised too (it should be ignored)
+const rootService = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: useId() }))
 const root = computed(() => menu.connect(rootService, normalizeProps))
 
-const subService = useMachine(menu.machine, { id: useId() })
+const subService = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: useId() }))
 const sub = computed(() => menu.connect(subService, normalizeProps))
 
-const sub2Service = useMachine(menu.machine, { id: useId() })
+const sub2Service = useMachine(menu.machine, controls.mergeProps<menu.Props>({ id: useId() }))
 const sub2 = computed(() => menu.connect(sub2Service, normalizeProps))
 
 onMounted(() => {
@@ -104,4 +108,10 @@ const [level1, level2, level3] = menuData
       </Teleport>
     </div>
   </main>
+
+  <Toolbar>
+    <template #controls>
+      <Controls :control="controls" />
+    </template>
+  </Toolbar>
 </template>

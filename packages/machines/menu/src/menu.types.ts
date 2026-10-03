@@ -129,6 +129,17 @@ export interface MenuProps extends DirectionProperty, CommonProperties, Dismissa
    */
   composite?: boolean | undefined
   /**
+   * Whether the menu should be modal. When set to `true`:
+   * - interaction with outside elements will be disabled
+   * - only the menu content will be visible to screen readers
+   * - scrolling is blocked
+   *
+   * Only applies to the root menu. Submenus and menubar menus ignore it.
+   *
+   * @default false
+   */
+  modal?: boolean | undefined
+  /**
    * Function to navigate to the selected item if it's an anchor element
    */
   navigate?: ((details: NavigateDetails) => void) | null | undefined
@@ -200,6 +211,7 @@ export interface MenuSchema {
     highlightedId: string | null
     isInMenubar: boolean
     menubarDisabled: boolean
+    isModal: boolean
   }
   refs: {
     parent: MenuService | null

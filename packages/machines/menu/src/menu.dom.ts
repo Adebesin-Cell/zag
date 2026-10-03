@@ -136,6 +136,17 @@ function getPortaledContentEl(scope: MenuService["scope"]): HTMLElement | null {
   return getContentEl(scope) ?? scope.getDoc().getElementById(contentId)
 }
 
+export function getMenuTreeContentEls(children: Record<string, MenuService>): HTMLElement[] {
+  const els: HTMLElement[] = []
+  for (const id in children) {
+    const child = children[id]
+    const childContent = getPortaledContentEl(child.scope)
+    if (childContent) els.push(childContent)
+    els.push(...getMenuTreeContentEls(child.refs.get("children")))
+  }
+  return els
+}
+
 export function isTargetWithinMenuTree(target: EventTarget | null, children: Record<string, MenuService>): boolean {
   if (!isHTMLElement(target)) return false
   for (const id in children) {

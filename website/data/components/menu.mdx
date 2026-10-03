@@ -176,6 +176,25 @@ const service = useMachine(menu.machine, {
 })
 ```
 
+### Making the menu modal
+
+Set `modal` to `true` to make the menu modal. While it's open, the menu:
+
+- blocks scrolling on the `body`
+- disables pointer interactions outside the menu
+- hides content behind the menu from screen readers
+
+```tsx
+const service = useMachine(menu.machine, {
+  modal: true,
+})
+```
+
+Set it on the root menu. Submenus follow the root, and menubar menus ignore it.
+
+There's no separate focus trap: the menu already keeps keyboard focus inside its
+content while it's open.
+
 ### Positioning the menu
 
 Use `positioning` to configure menu placement.

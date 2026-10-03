@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
-import { clickOutside, rect, testid } from "./_utils"
+import { clickOutside, controls, rect, testid } from "./_utils"
 
 const menu_1 = {
   trigger: testid("trigger"),
@@ -241,5 +241,44 @@ test.describe("nested menu / pointer movement", async () => {
     await expect(page.locator(menu_1.menu)).toBeVisible()
     await expect(page.locator(menu_1.menu)).toBeFocused()
     await expectToBeFocused(page, testid("new-tab"))
+  })
+})
+
+test.describe("nested menu / modal", async () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/menu/nested")
+    // the example passes the controls to every level, so this also sets `modal` on both submenus
+    await controls(page).bool("modal", true)
+  })
+
+  test("submenu opens on hover and stays open", async ({ page }) => {
+    await page.click(menu_1.trigger)
+    await page.hover(menu_1.sub_trigger)
+    await expect(page.locator(menu_2.menu)).toBeVisible()
+
+    // modal on the submenu used to block its own trigger, opening and closing it in a loop
+    await page.waitForTimeout(500)
+    await expect(page.locator(menu_2.menu)).toBeVisible()
+    await expect(page.locator("body")).toHaveAttribute("data-scroll-lock", "")
+  })
+
+  test("submenus are not hidden from screen readers", async ({ page }) => {
+    await navigateToSubmenuTrigger(page)
+    await page.keyboard.press("ArrowRight")
+    await expectSubmenuToBeFocused(page)
+
+    const hiddenAncestor = await page.locator(menu_2.menu).evaluate((el) => el.closest("[aria-hidden=true]") != null)
+    expect(hiddenAncestor).toBe(false)
+  })
+
+  test("clicking a submenu item selects it and closes all menus", async ({ page }) => {
+    await page.click(menu_1.trigger)
+    await page.hover(menu_1.sub_trigger)
+    await expect(page.locator(menu_2.menu)).toBeVisible()
+
+    await page.click(testid("save-page"))
+    await expect(page.locator(menu_1.menu)).toBeHidden()
+    await expect(page.locator(menu_2.menu)).toBeHidden()
+    await expect(page.locator("body")).not.toHaveAttribute("data-scroll-lock")
   })
 })
