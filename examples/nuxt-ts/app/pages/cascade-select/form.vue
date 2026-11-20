@@ -90,7 +90,7 @@ function onReset() {
           <button type="reset">Clear form</button>
         </div>
       </form>
-      <pre v-if="output" data-testid="form-output">{{ output }}</pre>
+      <pre v-if="output">{{ output }}</pre>
     </div>
   </main>
 

@@ -140,7 +140,7 @@ export default function Page() {
               <button type="reset">Clear form</button>
             </div>
           </form>
-          {output && <pre data-testid="form-output">{output}</pre>}
+          {output && <pre>{output}</pre>}
         </div>
       </main>
 

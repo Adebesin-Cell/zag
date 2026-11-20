@@ -142,7 +142,7 @@ export default function Page() {
             </div>
           </form>
           <Show when={output()}>
-            <pre data-testid="form-output">{output()}</pre>
+            <pre>{output()}</pre>
           </Show>
         </div>
       </main>

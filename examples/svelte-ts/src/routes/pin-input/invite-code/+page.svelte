@@ -51,7 +51,7 @@
       <button type="submit">Join team</button>
     </form>
     {#if output}
-      <pre data-testid="form-output">{output}</pre>
+      <pre>{output}</pre>
     {/if}
   </div>
 </main>

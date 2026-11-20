@@ -59,7 +59,7 @@ export default function Page() {
             <button type="submit">Join team</button>
           </form>
           <Show when={output()}>
-            <pre data-testid="form-output">{output()}</pre>
+            <pre>{output()}</pre>
           </Show>
         </div>
       </main>

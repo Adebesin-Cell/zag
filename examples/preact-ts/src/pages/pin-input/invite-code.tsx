@@ -57,7 +57,7 @@ export default function Page() {
             )}
             <button type="submit">Join team</button>
           </form>
-          {output && <pre data-testid="form-output">{output}</pre>}
+          {output && <pre>{output}</pre>}
         </div>
       </main>
 
